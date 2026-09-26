@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { gridPosFromMeshPosition } from './cubeMesh.js';
+import { gridPosFromMeshPosition, setMeshPositionFromGrid } from './cubeMesh.js';
 
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
@@ -41,8 +41,11 @@ export class CubeAnimator {
   }
 
   clear() {
-    if (this.current) this._finishMove(true);
+    // Kuyruk önce boşaltılmalı: _finishMove sonunda _tryStartNext'i çağırır ve kuyrukta
+    // hâlâ hamle varsa yenisini başlatır (bir sonraki hamlenin yarım kalmış bir pivotla
+    // başlamasına yol açar).
     this.queue = [];
+    if (this.current) this._finishMove(true);
   }
 
   setPaused(paused) {
@@ -99,10 +102,13 @@ export class CubeAnimator {
     }
     for (const mesh of cur.movingMeshes) {
       this.group.attach(mesh);
-      mesh.position.x = Math.round(mesh.position.x / this.spacing) * this.spacing;
-      mesh.position.y = Math.round(mesh.position.y / this.spacing) * this.spacing;
-      mesh.position.z = Math.round(mesh.position.z / this.spacing) * this.spacing;
-      mesh.userData.gridPos = gridPosFromMeshPosition(mesh, this.offset, this.spacing);
+      // Konumu doğrudan en yakın "spacing katına" yuvarlamak YANLIŞTIR: geçerli
+      // konumlar spacing'in YARIM katlarıdır (ör. ±0.51, ±1.02 değil), bu da her
+      // hamleden sonra parçaları ızgara dışına kaydırırdı. Önce tam sayı ızgara
+      // koordinatına yuvarlayıp konumu ondan yeniden kurmak doğru ve kesindir.
+      const gridPos = gridPosFromMeshPosition(mesh, this.offset, this.spacing);
+      mesh.userData.gridPos = gridPos;
+      setMeshPositionFromGrid(mesh, gridPos, this.offset, this.spacing);
     }
     this.group.remove(cur.pivot);
     const finishedMove = cur.move;

@@ -89,7 +89,9 @@ let animator = null;
 
 function disposeMeshes() {
   for (const mesh of cubeMeshes) {
-    cubeGroup.remove(mesh);
+    // Bir hamle animasyonu yarım kalmışsa mesh, cubeGroup'un değil geçici bir
+    // pivot grubunun çocuğu olabilir; her durumda mevcut ebeveyninden kaldır.
+    mesh.parent?.remove(mesh);
     mesh.material.forEach((m) => m.dispose());
   }
   meshGeometry?.dispose();
@@ -98,6 +100,10 @@ function disposeMeshes() {
 
 /** Meshleri sıfırdan kurar (anında, animasyonsuz): ilk yükleme, sıfırlama, başa dönme, boyama. */
 function mountCube(state) {
+  // Yarım kalmış bir animasyon varsa (pivot grubu + döndürme ortasındaki parçalar),
+  // önce onu düzgünce bitirip parçaları ana gruba geri al; aksi halde terk edilmiş
+  // pivot grupları sahnede kalır ve küp dağılmış görünür.
+  animator?.clear();
   disposeMeshes();
   const built = buildCubieMeshes(state, COLOR_HEX);
   cubeMeshes = built.meshes;
@@ -116,6 +122,12 @@ function mountCube(state) {
     animatingIndex = null;
     updateMoveListHighlight();
     checkCelebration();
+  };
+  animator.onQueueEmpty = () => {
+    if (playerCursor >= solutionMoves.length && isPlaying) {
+      isPlaying = false;
+      setPlayIcon(false);
+    }
   };
 }
 
