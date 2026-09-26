@@ -76,3 +76,18 @@ export function faceGrid(state, face) {
   }
   return grid;
 }
+
+// faceGrid'in tersi: bir yüzdeki (row,col) hücresinin hangi küp pozisyonuna karşılık
+// geldiğini döndürür. Renk boyama modunda tıklanan hücreyi gerçek parçaya eşlemek için kullanılır.
+export function positionForFaceCell(n, face, row, col) {
+  const hi = n - 1;
+  switch (face) {
+    case 'U': return [col, hi, hi - row];
+    case 'D': return [col, 0, row];
+    case 'F': return [col, hi - row, hi];
+    case 'B': return [hi - col, hi - row, 0];
+    case 'R': return [hi, hi - row, hi - col];
+    case 'L': return [0, hi - row, col];
+    default: throw new Error(`Bilinmeyen yüz: ${face}`);
+  }
+}

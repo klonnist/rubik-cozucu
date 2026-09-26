@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Rubik Küpü Çözücü</title>
+<meta name="description" content="Küp boyutunu seç, durumunu gir, 3D animasyonla adım adım çözümü izle. Tarayıcıda çalışan ücretsiz Rubik küpü çözücü." />
+<meta name="theme-color" content="#6d5efc" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Rubik Küpü Çözücü" />
+<meta property="og:description" content="Küp boyutunu seç, durumunu gir, 3D animasyonla adım adım çözümü izle." />
+<meta property="og:image" content="./assets/og-image.png" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="./assets/icon-192.png" />
+<link rel="manifest" href="./manifest.webmanifest" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="./css/styles.css" />
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#ana-icerik">İçeriğe geç</a>
+
+<header class="app-header">
+  <div class="brand">
+    <span class="brand-cube" aria-hidden="true"></span>
+    <span class="brand-name">Rubik Küpü Çözücü</span>
+  </div>
+  <div class="header-actions">
+    <button id="yardim-btn" class="icon-btn" type="button" aria-haspopup="dialog" aria-label="Nasıl kullanılır?">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm.75 15h-1.5v-1.5h1.5V17Zm1.55-6.14c-.44.5-.8.9-.8 1.64h-1.5c0-1.1.56-1.72 1.08-2.28.42-.45.72-.8.72-1.35 0-.83-.67-1.37-1.5-1.37s-1.5.6-1.5 1.5H8.75c0-1.66 1.34-3 3.25-3s3.25 1.2 3.25 2.87c0 .93-.5 1.5-.95 2Z"/></svg>
+    </button>
+    <button id="tema-btn" class="icon-btn" type="button" aria-label="Koyu/açık temayı değiştir">
+      <svg id="tema-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 4a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1Zm0 14a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1ZM4 11a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2H4Zm14 0a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2h-1ZM6.34 6.34a1 1 0 0 1 1.42 0l.7.7a1 1 0 1 1-1.42 1.42l-.7-.7a1 1 0 0 1 0-1.42Zm9.9 9.9a1 1 0 0 1 1.42 0l.7.7a1 1 0 1 1-1.42 1.42l-.7-.7a1 1 0 0 1 0-1.42Zm1.42-11.32a1 1 0 0 1 0 1.42l-.7.7a1 1 0 1 1-1.42-1.42l.7-.7a1 1 0 0 1 1.42 0Zm-9.9 9.9a1 1 0 0 1 0 1.42l-.7.7a1 1 0 1 1-1.42-1.42l.7-.7a1 1 0 0 1 1.42 0ZM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="ana-icerik" class="layout">
+  <section class="panel panel-sizes" aria-label="Küp boyutu seçimi">
+    <div class="size-buttons" role="group" aria-label="Küp boyutu">
+      <button class="size-btn is-active" data-size="2" type="button" aria-pressed="true">2×2</button>
+      <button class="size-btn" data-size="3" type="button" aria-pressed="false" disabled>
+        3×3 <span class="badge">Yakında</span>
+      </button>
+      <button class="size-btn" data-size="4" type="button" aria-pressed="false" disabled>
+        4×4 <span class="badge">Yakında</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="viewport-wrap" aria-label="3 boyutlu küp görünümü">
+    <canvas id="kup-canvas"></canvas>
+    <div id="kutlama-katmani" class="celebration-layer" aria-hidden="true"></div>
+    <div class="viewport-hint">Döndürmek için sürükleyin · yakınlaştırmak için kaydırın</div>
+  </section>
+
+  <div class="panels-column">
+    <details class="panel collapsible" open id="panel-durum">
+      <summary>
+        <span class="panel-title">Küp durumu</span>
+        <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+      </summary>
+      <div class="panel-body">
+        <div class="row-actions">
+          <button id="karistir-btn" class="btn btn-primary" type="button">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M18 4l3 3-3 3v-2h-4.59l-2 2H16v2h-6.59l-2.7 2.7A1 1 0 0 1 6 15H3v-2h2.59l7-7H3V4h9.59l2-2H18v2Zm0 12v-2l3 3-3 3v-2h-4.59l-2-2H18Z"/></svg>
+            Karıştır
+          </button>
+          <button id="sifirla-btn" class="btn btn-ghost" type="button">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 5V2L7 7l5 5V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8Z"/></svg>
+            Sıfırla
+          </button>
+        </div>
+
+        <label class="field-label" for="hamle-girisi">
+          Karıştırma dizisi (ör. <code>R U R' F2</code>)
+          <button id="notasyon-yardim-btn" class="link-btn" type="button" aria-haspopup="dialog">Hamle notasyonu nedir?</button>
+        </label>
+        <div class="row-actions">
+          <input id="hamle-girisi" class="text-input" type="text" inputmode="text" autocomplete="off"
+            placeholder="R U R' U'" aria-describedby="hamle-girisi-yardim" />
+          <button id="hamle-uygula-btn" class="btn btn-secondary" type="button">Uygula</button>
+        </div>
+        <p id="hamle-girisi-yardim" class="hint-text">Boşlukla ayrılmış hamleler yazın ve Uygula'ya basın.</p>
+
+        <div class="mode-toggle" role="tablist" aria-label="Küp durumu giriş yöntemi">
+          <button id="mod-3d-btn" class="mode-btn is-active" type="button" role="tab" aria-selected="true">3D küpü kullan</button>
+          <button id="mod-boyama-btn" class="mode-btn" type="button" role="tab" aria-selected="false">Renk boyama (2D)</button>
+        </div>
+
+        <div id="boyama-alani" class="paint-area" hidden>
+          <p class="hint-text">Önce bir renk seçin, sonra ağdaki kareye dokunun/tıklayın.</p>
+          <div id="palet" class="palette" role="group" aria-label="Renk paleti"></div>
+          <div id="net-2d" class="net-2d" aria-label="Küpün açık (2D) görünümü"></div>
+        </div>
+
+        <p id="dogrulama-mesaji" class="validation-msg" role="alert" hidden></p>
+      </div>
+    </details>
+
+    <details class="panel collapsible" id="panel-cozum">
+      <summary>
+        <span class="panel-title">Çözüm</span>
+        <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+      </summary>
+      <div class="panel-body">
+        <button id="coz-btn" class="btn btn-accent btn-block" type="button">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-1.2 14L7 12.2l1.4-1.4 2.4 2.4 5.4-5.4L17.6 9l-6.8 7Z"/></svg>
+          <span id="coz-btn-metin">Çöz</span>
+        </button>
+        <p id="coz-durum-mesaji" class="hint-text" role="status"></p>
+
+        <div id="cozum-sonuc" class="solution-result" hidden>
+          <div class="solution-summary">
+            <span id="hamle-sayisi">0</span> hamlelik çözüm
+          </div>
+          <ol id="hamle-listesi" class="move-list" aria-label="Çözüm hamleleri"></ol>
+        </div>
+      </div>
+    </details>
+  </div>
+</main>
+
+<div id="oynatma-cubugu" class="playback-bar" hidden>
+  <div class="playback-controls">
+    <button id="pb-basa-don" class="icon-btn" type="button" aria-label="Başa dön">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+    </button>
+    <button id="pb-geri" class="icon-btn" type="button" aria-label="Bir adım geri">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M11 18V6l-8.5 6L11 18Zm1-12v12l8.5-6L12 6Z"/></svg>
+    </button>
+    <button id="pb-oynat" class="icon-btn icon-btn-lg" type="button" aria-label="Oynat">
+      <svg id="pb-oynat-icon" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+    </button>
+    <button id="pb-ileri" class="icon-btn" type="button" aria-label="Bir adım ileri">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M13 6v12l8.5-6L13 6ZM4 6v12l8.5-6L4 6Z"/></svg>
+    </button>
+    <div class="speed-control">
+      <label for="pb-hiz">Hız</label>
+      <input id="pb-hiz" type="range" min="0.5" max="3" step="0.25" value="1" />
+    </div>
+  </div>
+  <div class="playback-progress">
+    <span id="pb-adim">0 / 0</span>
+  </div>
+</div>
+
+<dialog id="onboarding-dialog" class="app-dialog">
+  <form method="dialog">
+    <h2>Nasıl kullanılır?</h2>
+    <ol class="onboarding-steps">
+      <li><strong>1. Küpünü karıştır</strong> — "Karıştır" butonuna bas ya da elindeki gerçek küpün rengini gir.</li>
+      <li><strong>2. Kontrol et</strong> — Renkleri 2D ağ üzerinden dokunarak eşleştir, hatalar varsa sana söyleriz.</li>
+      <li><strong>3. Çöz'e bas</strong> — Çözüm bir saniyeden kısa sürede hazır olur.</li>
+      <li><strong>4. İzle</strong> — Oynat'a bas, hamleleri adım adım ya da otomatik izle.</li>
+    </ol>
+    <button class="btn btn-primary btn-block" value="kapat">Anladım, başlayalım</button>
+  </form>
+</dialog>
+
+<dialog id="notasyon-dialog" class="app-dialog">
+  <form method="dialog">
+    <h2>Hamle notasyonu</h2>
+    <p class="hint-text">Her harf küpün bir yüzünü, işaret ise dönüş yönünü belirtir.</p>
+    <table class="notation-table">
+      <tbody>
+        <tr><td><code>R</code></td><td>Sağ yüz, saat yönünde 90°</td></tr>
+        <tr><td><code>R'</code></td><td>Sağ yüz, saat yönü tersine 90°</td></tr>
+        <tr><td><code>R2</code></td><td>Sağ yüz, 180°</td></tr>
+        <tr><td><code>U D F B L</code></td><td>Üst, Alt, Ön, Arka, Sol yüzler (aynı kurallarla)</td></tr>
+      </tbody>
+    </table>
+    <button class="btn btn-primary btn-block" value="kapat">Kapat</button>
+  </form>
+</dialog>
+
+<div id="toast-alani" class="toast-area" aria-live="polite"></div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
