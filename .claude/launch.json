@@ -4,7 +4,7 @@
     {
       "name": "rubik-cozucu-dev",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "4173"],
+      "runtimeArgs": ["tools/devserver.py", "4173"],
       "port": 4173
     }
   ]

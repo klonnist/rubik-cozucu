@@ -17,6 +17,7 @@ export const COLOR_HEX = {
   BL: '#0057b8',
   R: '#c8102e',
   O: '#ff6a13',
+  EMPTY: '#888a94',
 };
 
 export const COLOR_LABEL_TR = {
@@ -26,7 +27,12 @@ export const COLOR_LABEL_TR = {
   BL: 'Mavi',
   R: 'Kırmızı',
   O: 'Turuncu',
+  EMPTY: 'Boş',
 };
+
+// Renk boyama modunda henüz boyanmamış bir kareyi işaretlemek için kullanılan özel
+// değer. Gerçek bir renk değildir; yalnızca "bu kare henüz doldurulmadı" anlamına gelir.
+export const EMPTY_COLOR = 'EMPTY';
 
 // Her yüzün dünya-uzayı normal yönü (three.js: +X sağ, +Y yukarı, +Z ön/kamera).
 export const FACE_DIR = {

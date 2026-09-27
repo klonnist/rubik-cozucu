@@ -1,12 +1,18 @@
-import { COLORS, COLOR_HEX, COLOR_LABEL_TR } from './cube/constants.js';
-import { createSolvedState, cloneState, isSolved, positionForFaceCell } from './cube/state.js';
+import { COLORS, COLOR_HEX, COLOR_LABEL_TR, EMPTY_COLOR } from './cube/constants.js';
+import {
+  createSolvedState, createBlankState, cloneState, isSolved,
+  isFullyPainted, countUnpainted, colorUsageCounts, centerColorOfFace,
+  positionForFaceCell,
+} from './cube/state.js';
 import { parseMoves, applyMove, invertMoveToken } from './cube/moves.js';
 import { randomScramble, defaultScrambleLength } from './cube/scramble.js';
 import { validate } from './cube/validate.js';
 import { isSizeReady } from './solvers/index.js';
 import { createScene } from './render/scene.js';
-import { buildCubieMeshes, setMeshPositionFromGrid } from './render/cubeMesh.js';
+import { buildCubieMeshes, repaintCubeGroup } from './render/cubeMesh.js';
 import { CubeAnimator } from './render/animator.js';
+import { createFaceNav, FACE_LABEL_TR } from './render/faceNav.js';
+import { createPaint3D, popCubie, blinkCubieInvalid } from './ui/paint3d.js';
 import { SolverClient } from './worker/solverClient.js';
 import { initTheme } from './ui/theme.js';
 import { createToaster } from './ui/toast.js';
@@ -29,8 +35,17 @@ const hamleUygulaBtn = $('hamle-uygula-btn');
 const mod3dBtn = $('mod-3d-btn');
 const modBoyamaBtn = $('mod-boyama-btn');
 const boyamaAlani = $('boyama-alani');
+const boyamaYonerge = $('boyama-yonerge');
+const boyamaTemizBtn = $('boyama-temiz-btn');
+const boyamaCozulmusBtn = $('boyama-cozulmus-btn');
+const boyamaGeriBtn = $('boyama-geri-btn');
+const boyamaIleriBtn = $('boyama-ileri-btn');
+const boyamaDurum = $('boyama-durum');
 const paletEl = $('palet');
 const net2dEl = $('net-2d');
+const yuzNav = $('yuz-nav');
+const yuzGostergeMetin = $('yuz-gosterge-metin');
+const yuzGostergeRenk = $('yuz-gosterge-renk');
 const dogrulamaMesaji = $('dogrulama-mesaji');
 const cozBtn = $('coz-btn');
 const cozBtnMetin = $('coz-btn-metin');
@@ -77,10 +92,18 @@ let celebrated = false;
 let paintMode = false;
 let selectedPaintColor = COLORS.U;
 
+// Boyama modu geri al/yinele geçmişi: her biri cloneState() ile alınmış bağımsız
+// anlık görüntüler. paintHistoryIndex şu an gösterilen durumu işaret eder.
+let paintHistory = [];
+let paintHistoryIndex = -1;
+// Aynı geçersizlik durumunu (aynı hatalı konumlar) tekrar tekrar yanıp söndürmemek
+// için son gösterilen hatanın imzasını tutar.
+let lastInvalidSignature = null;
+
 const solverClient = new SolverClient();
 
 // ---------- 3B sahne ----------
-const { scene, cubeGroup, start, onTick, resize } = createScene(canvas);
+const { camera, controls, renderer, cubeGroup, start, onTick, resize } = createScene(canvas);
 let cubeMeshes = [];
 let meshGeometry = null;
 let meshOffset = 0;
@@ -131,6 +154,23 @@ function mountCube(state) {
   };
 }
 
+// ---------- Yüz navigasyonu ve 3D boyama girişi ----------
+const faceNav = createFaceNav({
+  camera,
+  controls,
+  onTick,
+  onFaceChange: (face) => updateFaceIndicator(face),
+});
+
+createPaint3D({
+  domElement: renderer.domElement,
+  camera,
+  getMeshes: () => cubeMeshes,
+  onTap: (hit) => handle3DTap(hit),
+  onDragEnd: () => faceNav.snapToNearest(),
+  isEnabled: () => paintMode,
+});
+
 mountCube(cubeState);
 onTick((deltaMs) => animator?.tick(deltaMs));
 start();
@@ -147,13 +187,44 @@ function clearSolutionUI() {
   cozDurumMesaji.textContent = '';
 }
 
+function highlightInvalidPieces(errors) {
+  const positions = errors[0]?.positions ?? [];
+  let rotateFace = null;
+  for (const pos of positions) {
+    const idx = cubeState.cubies.findIndex((c) => c.pos[0] === pos[0] && c.pos[1] === pos[1] && c.pos[2] === pos[2]);
+    if (idx === -1) continue;
+    const mesh = cubeMeshes[idx];
+    if (mesh) blinkCubieInvalid(mesh, onTick);
+    if (!rotateFace) rotateFace = Object.keys(cubeState.cubies[idx].stickers)[0];
+  }
+  if (rotateFace) faceNav.goToFace(rotateFace);
+}
+
 function runValidation() {
+  if (paintMode && !isFullyPainted(cubeState)) {
+    lastInvalidSignature = null;
+    cozBtn.disabled = true;
+    dogrulamaMesaji.hidden = true;
+    boyamaDurum.textContent = `Çöz'e basabilmek için ${countUnpainted(cubeState)} kare daha boyayın.`;
+    return { valid: false, errors: [], incomplete: true };
+  }
+  cozBtn.disabled = false;
   const result = validate(cubeState);
   if (result.valid) {
     dogrulamaMesaji.hidden = true;
+    lastInvalidSignature = null;
+    if (paintMode) boyamaDurum.textContent = 'Tüm kareler dolduruldu.';
   } else {
     dogrulamaMesaji.hidden = false;
     dogrulamaMesaji.textContent = result.errors[0].message;
+    if (paintMode) {
+      boyamaDurum.textContent = 'Tüm kareler dolduruldu, ama bir sorun var (yukarıya bakın).';
+      const sig = JSON.stringify(result.errors[0].positions);
+      if (sig !== lastInvalidSignature) {
+        lastInvalidSignature = sig;
+        highlightInvalidPieces(result.errors);
+      }
+    }
   }
   return result;
 }
@@ -161,39 +232,145 @@ function runValidation() {
 function refreshPaintUI() {
   if (!paintMode) return;
   renderNet(net2dEl, cubeState, handleNetCellClick);
+  renderPalette();
+  runValidation();
+}
+
+function updatePaintGuidanceText() {
+  if (cubeState.n % 2 === 1) {
+    boyamaYonerge.textContent = "İpucu: Standart düzende Yeşil merkezli yüzü kendinize, Beyaz merkezli yüzü yukarı çevirip oradan başlayın. Küpü çevirmek için sürükleyin, boyamak için bir kareye kısaca dokunun.";
+  } else {
+    boyamaYonerge.textContent = `${cubeState.n}x${cubeState.n} küpte sabit merkez yoktur; yönü siz belirlersiniz. Elinizdeki küpte bir köşeyi seçin ve o köşenin renklerini aynı sırayla girin. Küpü çevirmek için sürükleyin, boyamak için bir kareye kısaca dokunun.`;
+  }
+}
+
+function updateFaceIndicator(face) {
+  const label = FACE_LABEL_TR[face] ?? face;
+  const center = centerColorOfFace(cubeState, face);
+  if (center && center !== EMPTY_COLOR) {
+    yuzGostergeMetin.textContent = `${label} – ${COLOR_LABEL_TR[center]}`;
+    yuzGostergeRenk.style.background = COLOR_HEX[center];
+    yuzGostergeRenk.classList.remove('is-unknown');
+  } else {
+    yuzGostergeMetin.textContent = label;
+    yuzGostergeRenk.style.background = '';
+    yuzGostergeRenk.classList.add('is-unknown');
+  }
+}
+
+function pushPaintHistory() {
+  paintHistory = paintHistory.slice(0, paintHistoryIndex + 1);
+  paintHistory.push(cloneState(cubeState));
+  paintHistoryIndex = paintHistory.length - 1;
+  updateUndoRedoButtons();
+}
+
+function resetPaintHistory() {
+  paintHistory = [cloneState(cubeState)];
+  paintHistoryIndex = 0;
+  updateUndoRedoButtons();
+}
+
+function updateUndoRedoButtons() {
+  boyamaGeriBtn.disabled = paintHistoryIndex <= 0;
+  boyamaIleriBtn.disabled = paintHistoryIndex >= paintHistory.length - 1;
+}
+
+function undoPaint() {
+  if (paintHistoryIndex <= 0) return;
+  paintHistoryIndex--;
+  cubeState = cloneState(paintHistory[paintHistoryIndex]);
+  repaintCubeGroup(cubeMeshes, cubeState, COLOR_HEX);
+  clearSolutionUI();
+  refreshPaintUI();
+  updateUndoRedoButtons();
+}
+
+function redoPaint() {
+  if (paintHistoryIndex >= paintHistory.length - 1) return;
+  paintHistoryIndex++;
+  cubeState = cloneState(paintHistory[paintHistoryIndex]);
+  repaintCubeGroup(cubeMeshes, cubeState, COLOR_HEX);
+  clearSolutionUI();
+  refreshPaintUI();
+  updateUndoRedoButtons();
+}
+
+/** Bir parçanın bir yüzünü seçili renkle boyar; aynı renk tekrar uygulanırsa boşa döner. */
+function applyPaintAction(cubieIndex, face) {
+  const cubie = cubeState.cubies[cubieIndex];
+  if (!cubie || cubie.stickers[face] === undefined) return false;
+  const current = cubie.stickers[face];
+  cubie.stickers[face] = current === selectedPaintColor ? EMPTY_COLOR : selectedPaintColor;
+  repaintCubeGroup(cubeMeshes, cubeState, COLOR_HEX);
+  pushPaintHistory();
+  clearSolutionUI();
+  refreshPaintUI();
+  return true;
+}
+
+function handle3DTap({ mesh, face, cubieIndex }) {
+  if (!paintMode) return;
+  if (!applyPaintAction(cubieIndex, face)) return;
+  popCubie(mesh, onTick);
+  navigator.vibrate?.(12);
 }
 
 function handleNetCellClick(face, row, col) {
   const [x, y, z] = positionForFaceCell(cubeState.n, face, row, col);
-  const cubie = cubeState.cubies.find((c) => c.pos[0] === x && c.pos[1] === y && c.pos[2] === z);
-  if (!cubie || cubie.stickers[face] === undefined) return;
-  cubie.stickers[face] = selectedPaintColor;
-  mountCube(cubeState);
-  refreshPaintUI();
-  clearSolutionUI();
-  runValidation();
+  const cubieIndex = cubeState.cubies.findIndex((c) => c.pos[0] === x && c.pos[1] === y && c.pos[2] === z);
+  if (cubieIndex === -1) return;
+  applyPaintAction(cubieIndex, face);
+  faceNav.goToFace(face);
 }
 
 function renderPalette() {
   paletEl.innerHTML = '';
+  const counts = colorUsageCounts(cubeState);
+  const quota = cubeState.n * cubeState.n;
   for (const face of ['U', 'D', 'F', 'B', 'R', 'L']) {
     const color = COLORS[face];
+    const used = counts[color] ?? 0;
+    const wrap = document.createElement('div');
+    wrap.className = 'palette-item';
+
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'palette-swatch';
     btn.style.background = COLOR_HEX[color];
-    btn.setAttribute('aria-label', COLOR_LABEL_TR[color]);
+    btn.setAttribute('aria-label', `${COLOR_LABEL_TR[color]}, ${used}/${quota} kullanıldı`);
     btn.title = COLOR_LABEL_TR[color];
     if (color === selectedPaintColor) btn.classList.add('is-selected');
+    if (used === quota) btn.classList.add('is-full');
+    if (used > quota) btn.classList.add('is-over');
     btn.addEventListener('click', () => {
       selectedPaintColor = color;
-      [...paletEl.children].forEach((c) => c.classList.remove('is-selected'));
-      btn.classList.add('is-selected');
+      renderPalette();
     });
-    paletEl.appendChild(btn);
+
+    const countEl = document.createElement('span');
+    countEl.className = 'palette-count';
+    if (used === quota) countEl.classList.add('is-full');
+    if (used > quota) countEl.classList.add('is-over');
+    countEl.textContent = `${used}/${quota}`;
+
+    wrap.appendChild(btn);
+    wrap.appendChild(countEl);
+    paletEl.appendChild(wrap);
   }
 }
 renderPalette();
+
+/** Boyama modunu belirli bir durumdan (boş ya da çözülmüş) yeniden başlatır. */
+function resetPaintState(useSolved) {
+  cubeState = useSolved ? createSolvedState(currentSize) : createBlankState(currentSize);
+  mountCube(cubeState);
+  resetPaintHistory();
+  clearSolutionUI();
+  updatePaintGuidanceText();
+  refreshPaintUI();
+  updateFaceIndicator(faceNav.getCurrentFace());
+}
 
 // ---------- Boyut seçimi ----------
 document.querySelectorAll('.size-btn').forEach((btn) => {
@@ -209,10 +386,15 @@ document.querySelectorAll('.size-btn').forEach((btn) => {
       b.setAttribute('aria-pressed', String(b === btn));
     });
     currentSize = size;
-    cubeState = createSolvedState(currentSize);
-    mountCube(cubeState);
-    clearSolutionUI();
-    runValidation();
+    if (paintMode) {
+      resetPaintState(false);
+    } else {
+      cubeState = createSolvedState(currentSize);
+      mountCube(cubeState);
+      clearSolutionUI();
+      resetPaintHistory();
+      runValidation();
+    }
   });
 });
 
@@ -235,7 +417,9 @@ function startFromSolvedAndApply(sequence) {
     toast(err.message, 'error');
     return;
   }
+  resetPaintHistory();
   runValidation();
+  if (paintMode) refreshPaintUI();
 }
 
 karistirBtn.addEventListener('click', () => {
@@ -261,6 +445,7 @@ sifirlaBtn.addEventListener('click', () => {
   cubeState = createSolvedState(currentSize);
   mountCube(cubeState);
   clearSolutionUI();
+  resetPaintHistory();
   runValidation();
   hamleGirisi.value = '';
   if (paintMode) refreshPaintUI();
@@ -277,8 +462,25 @@ function setMode(paint) {
   modBoyamaBtn.classList.toggle('is-active', paint);
   modBoyamaBtn.setAttribute('aria-selected', String(paint));
   boyamaAlani.hidden = !paint;
-  if (paint) refreshPaintUI();
+  yuzNav.hidden = !paint;
+  if (!paint) return;
+  if (paintHistory.length === 0) {
+    resetPaintState(false);
+  } else {
+    updatePaintGuidanceText();
+    refreshPaintUI();
+    updateFaceIndicator(faceNav.getCurrentFace());
+  }
 }
+
+boyamaTemizBtn.addEventListener('click', () => resetPaintState(false));
+boyamaCozulmusBtn.addEventListener('click', () => resetPaintState(true));
+boyamaGeriBtn.addEventListener('click', () => undoPaint());
+boyamaIleriBtn.addEventListener('click', () => redoPaint());
+
+document.querySelectorAll('.face-nav-btn[data-dir]').forEach((btn) => {
+  btn.addEventListener('click', () => faceNav.navigate(btn.dataset.dir));
+});
 
 // ---------- Çözüm ----------
 function setSolveBusy(busy, label) {
@@ -290,6 +492,7 @@ function setSolveBusy(busy, label) {
 cozBtn.addEventListener('click', async () => {
   const result = runValidation();
   if (!result.valid) {
+    if (result.incomplete) return;
     toast(result.errors[0].message, 'error');
     return;
   }

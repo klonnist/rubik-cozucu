@@ -61,10 +61,31 @@
     </div>
   </section>
 
-  <section class="viewport-wrap" aria-label="3 boyutlu küp görünümü">
+  <section class="viewport-wrap" id="viewport-wrap" aria-label="3 boyutlu küp görünümü">
     <canvas id="kup-canvas"></canvas>
     <div id="kutlama-katmani" class="celebration-layer" aria-hidden="true"></div>
-    <div class="viewport-hint">Döndürmek için sürükleyin · yakınlaştırmak için kaydırın</div>
+    <div class="viewport-hint" id="viewport-hint">Döndürmek için sürükleyin · yakınlaştırmak için kaydırın</div>
+
+    <div id="yuz-nav" class="face-nav" hidden>
+      <button class="face-nav-btn face-nav-up" type="button" data-dir="up" aria-label="Yukarıdaki yüze dön">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 6 4 16h16Z"/></svg>
+      </button>
+      <div class="face-nav-row">
+        <button class="face-nav-btn face-nav-left" type="button" data-dir="left" aria-label="Soldaki yüze dön">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M18 4 8 12l10 8Z"/></svg>
+        </button>
+        <div class="face-indicator" id="yuz-gosterge">
+          <span class="face-indicator-swatch" id="yuz-gosterge-renk" aria-hidden="true"></span>
+          <span id="yuz-gosterge-metin">Ön yüz</span>
+        </div>
+        <button class="face-nav-btn face-nav-right" type="button" data-dir="right" aria-label="Sağdaki yüze dön">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 4 16 12 6 20Z"/></svg>
+        </button>
+      </div>
+      <button class="face-nav-btn face-nav-down" type="button" data-dir="down" aria-label="Aşağıdaki yüze dön">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 18 4 8h16Z"/></svg>
+      </button>
+    </div>
   </section>
 
   <div class="panels-column">
@@ -98,13 +119,35 @@
 
         <div class="mode-toggle" role="tablist" aria-label="Küp durumu giriş yöntemi">
           <button id="mod-3d-btn" class="mode-btn is-active" type="button" role="tab" aria-selected="true">3D küpü kullan</button>
-          <button id="mod-boyama-btn" class="mode-btn" type="button" role="tab" aria-selected="false">Renk boyama (2D)</button>
+          <button id="mod-boyama-btn" class="mode-btn" type="button" role="tab" aria-selected="false">Renk boyama</button>
         </div>
 
         <div id="boyama-alani" class="paint-area" hidden>
-          <p class="hint-text">Önce bir renk seçin, sonra ağdaki kareye dokunun/tıklayın.</p>
+          <p id="boyama-yonerge" class="hint-text">Küpü çevirip bir yüzü kendine getirin, sonra karelere dokunun.</p>
+
+          <div class="row-actions">
+            <button id="boyama-temiz-btn" class="btn btn-ghost btn-sm" type="button">Temiz başla</button>
+            <button id="boyama-cozulmus-btn" class="btn btn-ghost btn-sm" type="button">Çözülmüş küpten başla</button>
+          </div>
+          <div class="row-actions">
+            <button id="boyama-geri-btn" class="btn btn-ghost btn-sm" type="button" disabled>
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8Z"/></svg>
+              Geri al
+            </button>
+            <button id="boyama-ileri-btn" class="btn btn-ghost btn-sm" type="button" disabled>
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M11.5 8c2.65 0 5.05 1 6.9 2.6L22 7v9h-9l3.62-3.62c-1.39-1.16-3.16-1.88-5.12-1.88-3.54 0-6.55 2.31-7.6 5.5l-2.37-.78C2.92 11.03 6.85 8 11.5 8Z"/></svg>
+              Yinele
+            </button>
+          </div>
+
           <div id="palet" class="palette" role="group" aria-label="Renk paleti"></div>
-          <div id="net-2d" class="net-2d" aria-label="Küpün açık (2D) görünümü"></div>
+
+          <p id="boyama-durum" class="hint-text" role="status">Boyamaya başlamak için bir yüz seçin.</p>
+
+          <details class="mini-map-details">
+            <summary>2D açık görünüm (küçük harita)</summary>
+            <div id="net-2d" class="net-2d net-2d-mini" aria-label="Küpün açık (2D) görünümü"></div>
+          </details>
         </div>
 
         <p id="dogrulama-mesaji" class="validation-msg" role="alert" hidden></p>

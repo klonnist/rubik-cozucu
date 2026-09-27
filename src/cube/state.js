@@ -1,4 +1,4 @@
-import { COLORS } from './constants.js';
+import { COLORS, EMPTY_COLOR } from './constants.js';
 
 /**
  * Küp durumu: { n, cubies: [{ pos:[x,y,z], stickers:{U?,D?,F?,B?,R?,L?: renkKodu} }] }
@@ -27,6 +27,50 @@ export function createSolvedState(n) {
     }
   }
   return { n, cubies };
+}
+
+// Renk boyama modu için: çözülmüş küpteki AYNI parça/yüz yapısına sahip ama tüm
+// stickerları EMPTY_COLOR (henüz boyanmamış) olan "boş" bir durum döndürür.
+export function createBlankState(n) {
+  const state = createSolvedState(n);
+  for (const cubie of state.cubies) {
+    for (const face of Object.keys(cubie.stickers)) cubie.stickers[face] = EMPTY_COLOR;
+  }
+  return state;
+}
+
+export function isFullyPainted(state) {
+  return state.cubies.every((c) => Object.values(c.stickers).every((color) => color !== EMPTY_COLOR));
+}
+
+export function countUnpainted(state) {
+  let remaining = 0;
+  for (const c of state.cubies) {
+    for (const color of Object.values(c.stickers)) if (color === EMPTY_COLOR) remaining++;
+  }
+  return remaining;
+}
+
+/** Her rengin kaç kez kullanıldığını sayar (EMPTY_COLOR hariç). */
+export function colorUsageCounts(state) {
+  const counts = {};
+  for (const c of state.cubies) {
+    for (const color of Object.values(c.stickers)) {
+      if (color === EMPTY_COLOR) continue;
+      counts[color] = (counts[color] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
+/**
+ * Bir yüzün merkez rengini döndürür (yalnızca n tek olduğunda gerçek/sabit bir merkez
+ * vardır); çift n için null döner (2x2/4x4'te sabit merkez yoktur).
+ */
+export function centerColorOfFace(state, face) {
+  if (state.n % 2 === 0) return null;
+  const mid = (state.n - 1) / 2;
+  return faceGrid(state, face)[mid][mid];
 }
 
 export function cloneState(state) {

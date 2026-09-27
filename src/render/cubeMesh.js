@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // BoxGeometry yüz grubu sırası: 0:+X 1:-X 2:+Y 3:-Y 4:+Z 5:-Z -> R,L,U,D,F,B ile birebir eşleşir.
-const MATERIAL_FACE_ORDER = ['R', 'L', 'U', 'D', 'F', 'B'];
+export const MATERIAL_FACE_ORDER = ['R', 'L', 'U', 'D', 'F', 'B'];
 const PLASTIC_COLOR = 0x1b1b22;
 
 export function buildCubieMeshes(state, colorHex) {
@@ -12,7 +12,7 @@ export function buildCubieMeshes(state, colorHex) {
   const geometry = new THREE.BoxGeometry(cubieSize, cubieSize, cubieSize);
   const meshes = [];
 
-  for (const cubie of state.cubies) {
+  state.cubies.forEach((cubie, index) => {
     const materials = MATERIAL_FACE_ORDER.map((face) => {
       const color = cubie.stickers[face];
       return new THREE.MeshStandardMaterial({
@@ -23,9 +23,10 @@ export function buildCubieMeshes(state, colorHex) {
     });
     const mesh = new THREE.Mesh(geometry, materials);
     mesh.userData.gridPos = [...cubie.pos];
+    mesh.userData.cubieIndex = index;
     setMeshPositionFromGrid(mesh, cubie.pos, offset, spacing);
     meshes.push(mesh);
-  }
+  });
 
   return { meshes, offset, spacing, geometry };
 }
