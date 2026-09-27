@@ -1,11 +1,14 @@
 import { solve, isSizeReady } from '../solvers/index.js';
 import { warmUp } from '../solvers/solver2x2.js';
+import { warmUp3x3 } from '../solvers/solver3x3.js';
 
-// 2x2 budama tablosunu sayfa yüklenir yüklenmez, kullanıcı henüz "Çöz"e basmadan ısıt.
+// Budama tablolarını sayfa yüklenir yüklenmez, kullanıcı henüz "Çöz"e basmadan ısıt.
 // Bu senkron ve birkaç saniye sürebilir; ancak bu bir Worker olduğu için arayüz donmaz.
 setTimeout(() => {
   warmUp();
   postMessage({ type: 'ready', size: 2 });
+  warmUp3x3();
+  postMessage({ type: 'ready', size: 3 });
 }, 0);
 
 onmessage = (event) => {

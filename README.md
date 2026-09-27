@@ -8,21 +8,22 @@ adım izle. Kurulum ya da sunucu gerekmez — her şey tarayıcında, cihazında
 
 ![Rubik Küpü Çözücü önizleme](./assets/screenshot.png)
 
-## Özellikler (Aşama 1)
+## Özellikler
 
-- **2×2 küp**, uçtan uca çalışır durumda.
+- **2×2 küp**: bir köşeyi referans alma tekniği + kesin BFS tablosuyla, **1 saniyenin
+  çok altında** (tipik olarak birkaç milisaniye) optimal çözüm.
+- **3×3 küp**: Kociemba iki aşamalı algoritmasıyla tipik **20-25 hamlede, 1 saniyenin
+  altında** (ortalama ~250ms, en kötü durumda ~2sn) çözüm.
 - Rastgele **karıştırma** ya da elle hamle dizisi (`R U R' F2`) girme.
 - **Renk boyama modu**: gerçek küpünün durumunu 2D açık (net) görünüm üzerinden gir.
 - Fiziksel olarak geçersiz bir durum girilirse anlaşılır, suçlayıcı olmayan uyarı.
-- "Bir köşeyi sabit alma" tekniği ve önceden hesaplanmış tam bir mesafe tablosuyla
-  **1 saniyenin çok altında** (tipik olarak birkaç milisaniye) optimal çözüm.
 - Oynat / duraklat / adım ileri / adım geri / başa dön / hız kontrolü.
 - Açık/koyu tema (sistem tercihini otomatik algılar, elle de değiştirilebilir).
 - Mobil öncelikli, dokunmatik uyumlu, tam erişilebilir (klavye ile kullanılabilir) arayüz.
 - Ana ekrana eklenebilir (PWA manifest + ikonlar).
 
-3×3 ve 4×4 küpler için mimari baştan hazır (bkz. [Mimari](#mimari)); yalnızca yeni bir
-çözücü modülü eklenmesi yeterli olacak.
+4×4 küp için mimari baştan hazır (bkz. [Mimari](#mimari)); yalnızca yeni bir çözücü
+modülü eklenmesi yeterli olacak.
 
 ## Yerelde çalıştırma
 
@@ -86,7 +87,12 @@ ekleyip `src/solvers/index.js` içindeki kayda eklemekten ibarettir.
 - **2×2**: Bir köşeyi referans alarak durum uzayını 7 köşenin permütasyonu × yönelimine
   (3.674.160 durum) indirger; bu uzay üzerinde kesin bir BFS mesafe tablosu bir kez
   kurulur, çözüm bu tabloyu izleyen açgözlü bir inişle (arama yapmadan) bulunur.
-- **3×3** (yakında): Kociemba iki aşamalı algoritması.
+- **3×3**: Kociemba iki aşamalı algoritması (`src/solvers/kociemba/`). Faz 1, IDA* arama
+  ve iki budama tablosuyla (köşe/kenar yönelimi + orta katman kenarlarının konumu) küpü
+  G1 alt grubuna indirger; faz 2, yalnızca G1'i koruyan 10 hamleyle (U,D,R2,L2,F2,B2) ve
+  iki budama tablosuyla (köşe/kenar permütasyonu) küpü tamamen çözer. 4 budama tablosu
+  (~1M durum her biri) Worker'da bir kez kurulur (~10sn), sonrasında her çözüm ortalama
+  birkaç yüz milisaniyede tamamlanır.
 - **4×4** (yakında): İndirgeme yöntemi (merkezler → kenar eşleştirme → 3×3 aşaması → parite).
 
 ## Teknoloji
